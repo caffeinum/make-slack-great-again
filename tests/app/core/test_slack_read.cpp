@@ -323,6 +323,23 @@ TEST("slack read: history pages arrive oldest first, hasMoreBefore follows has_m
     CHECK_STR(l.get("conversations.history", 1)["form"]["inclusive"].str(), "false");
 }
 
+// What the shell would announce (Shell::messagesArrived): a live Append or an
+// Arrived. Pages merged in (history, a thread, a refetch) are not news.
+struct News {
+    model::Store         &store;
+    std::vector<Ts>       seen;
+    model::Store::ObserverId id;
+    explicit News(model::Store &s) : store(s) {
+        id = s.observe(model::Store::kAnyConv, [this](const model::Change &ch) {
+            if (ch.kind == model::ChangeKind::Arrived && store.arrived())
+                seen.push_back(store.arrived()->ts);
+            else if (ch.kind == model::ChangeKind::Append && ch.live)
+                seen.push_back(ch.ts ? ch.ts : 1);
+        });
+    }
+    ~News() { store.unobserve(id); }
+};
+
 TEST("slack read: a thread loads every replies page and refreshes its root") {
     if (!haveServer())
         return;
@@ -347,12 +364,14 @@ TEST("slack read: a thread loads every replies page and refreshes its root") {
         {"type": "message", "ts": "1700000400.000000", "thread_ts": "1700000200.000200",
          "user": "UMIRA", "text": "two", "subtype": "thread_broadcast"}]}
     ])");
+    News news(e.store);
     bool called = false, ok = false;
     e.be->loadThread(c, root, [&](bool o, const std::string &) {
         called = true;
         ok     = o;
     });
     REQUIRE(pumpUntil([&] { return called; }) && ok);
+    CHECK(news.seen.empty()); // a thread opened: its replies are history, not news
     const std::vector<model::Message> *replies = e.store.replies(c, root);
     REQUIRE(replies && replies->size() == 2);
     CHECK_STR((*replies)[0].text, "one");
@@ -410,6 +429,28 @@ TEST("slack read: a failed replies page fails the thread load; a looping cursor 
     CHECK(!ok);
     CHECK_STR(err, "page_limit");
     CHECK(Log().count("conversations.replies") == 2 + 400);
+}
+
+TEST("slack read: a page is no news; a polled message is news once, however many polls") {
+    if (!haveServer())
+        return;
+    Env e;
+    set(R"({"conversations.history?channel=C1": {"ok": true, "has_more": false, "messages": [
+              {"type": "message", "ts": "1700000100.000000", "user": "UJONAS", "text": "old"}]}})");
+    REQUIRE(e.connect());
+    const ConvRef c = e.conv("C1");
+    News          news(e.store);
+    REQUIRE(e.history(c, 0));
+    CHECK(news.seen.empty()); // the head page: history, not news
+    e.be->setActiveConversation(c, 0);
+    set(R"({"conversations.history?channel=C1": {"ok": true, "has_more": false, "messages": [
+              {"type": "message", "ts": "1700000300.000000", "user": "UMIRA", "text": "b",
+               "thread_ts": "1700000250.000000", "subtype": "thread_broadcast"},
+              {"type": "message", "ts": "1700000200.000000", "user": "UMIRA", "text": "a"},
+              {"type": "message", "ts": "1700000100.000000", "user": "UJONAS", "text": "old"}]}})");
+    REQUIRE(pumpUntil([&] { return news.seen.size() >= 2; }, 3000));
+    fakeslack::pumpFor(500); // ten more polls of the same page
+    CHECK(news.seen.size() == 2);
 }
 
 TEST("slack read: the open chat's poll delivers new messages and deletions") {

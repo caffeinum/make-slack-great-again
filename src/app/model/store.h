@@ -43,6 +43,8 @@ struct Change {
     Ts         thread = 0; // 0: the conversation's top-level list; else that thread's replies
     Ts         ts     = 0; // Insert / Update / Remove
     uint32_t   count  = 0; // Append / Prepend
+    bool       live   = false; // Append / Insert by addMessage: a message that just arrived,
+                               // not a page merged in (history, a thread, a catch-up)
 };
 
 // Oldest first: a newest-first page (conversations.history) is reversed,

@@ -125,6 +125,14 @@ std::string Shell::workspaceIconFor(const model::Store &st) const {
     return workspaceIcon(_ctx.app.platform(), st.workspaceId, st.workspaceIcon);
 }
 
+// A burst (several workspaces at once, a run of DMs) chimes once.
+bool chimeDue(int64_t &lastMs, int64_t nowMs) {
+    if (lastMs && nowMs - lastMs < kChimeGapMs)
+        return false;
+    lastMs = nowMs;
+    return true;
+}
+
 // The OS notification, where there is a notifier (Windows falls back to a
 // tray balloon by itself); 0 = none shown. Callers play the chime either way,
 // also for a tray balloon. We pick the id (persisted, never reused -- see
@@ -151,7 +159,7 @@ void Shell::postNotification(plat::Notification n, std::vector<std::string> pics
                 _notified[id] = std::move(where);
                 saveNotifiedSoon();
             }
-            if (_settings.notifySound)
+            if (_settings.notifySound && chimeDue(_lastChimeMs, base::monotonicMs()))
                 sounds::play(_ctx.app.platform(), _settings.soundId);
         }
     );
@@ -170,6 +178,10 @@ model::NotifyLevel Shell::effectiveLevel(const model::Conversation &c) const {
 // not loaded: Arrived).
 void Shell::messagesArrived(model::Store &st, const std::string &key, const model::Change &ch) {
     if (ch.conv >= st.conversationCount())
+        return;
+    // A page merged in (history, a thread opened, the catch-up after a
+    // reconnect) is not news: what arrived live is announced on its own.
+    if (ch.kind == model::ChangeKind::Append && !ch.live)
         return;
     if (ch.kind == model::ChangeKind::Arrived) {
         if (const model::Message *m = st.arrived())

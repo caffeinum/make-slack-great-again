@@ -122,6 +122,15 @@ std::vector<TextEdit::Run> run(uint32_t a, uint32_t b, uint8_t f, std::string_vi
 
 // ── mrkdwn serialiser ───────────────────────────────────────────────────────
 
+TEST("notifications: a burst chimes once, then the next after the gap") {
+    int64_t last = 0;
+    CHECK(shell::chimeDue(last, 10'000));
+    CHECK_FALSE(shell::chimeDue(last, 10'001)); // the rest of the burst: banners only
+    CHECK_FALSE(shell::chimeDue(last, 10'000 + shell::kChimeGapMs - 1));
+    CHECK(shell::chimeDue(last, 10'000 + shell::kChimeGapMs));
+    CHECK(last == 10'000 + shell::kChimeGapMs);
+}
+
 TEST("composer: runs serialise to mrkdwn the parser reads back") {
     const std::string          text = "bold and italic code link";
     std::vector<TextEdit::Run> runs = {

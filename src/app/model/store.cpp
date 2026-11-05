@@ -663,7 +663,8 @@ void Store::addMessage(ConvRef ref, Message m) {
              ref,
              thread,
              atEnd ? 0 : ts,
-             atEnd ? 1u : 0u}
+             atEnd ? 1u : 0u,
+             true}
         );
         if (root)
             emit({ChangeKind::Update, ref, 0, thread});
@@ -685,7 +686,8 @@ void Store::addMessage(ConvRef ref, Message m) {
              ref,
              0,
              atEnd ? 0 : ts,
-             atEnd ? 1u : 0u}
+             atEnd ? 1u : 0u,
+             true}
         );
         emit({ChangeKind::Meta, ref});
     }

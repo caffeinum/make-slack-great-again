@@ -167,7 +167,7 @@ if(APPLE)
                 "${MSGA_INFO_PLIST}" "$<TARGET_BUNDLE_CONTENT_DIR:msga>/Info.plist"
         COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:msga>/Resources"
         ${_icon_step}
-        COMMAND codesign --force --deep --sign - "$<TARGET_BUNDLE_DIR:msga>"
+        COMMAND codesign --force --deep --sign - "-r=designated => identifier \"com.nisdos.msga\"" "$<TARGET_BUNDLE_DIR:msga>"
         VERBATIM
         COMMENT "Installing Info.plist, app icon and ad-hoc signing msga.app")
 elseif(WIN32)

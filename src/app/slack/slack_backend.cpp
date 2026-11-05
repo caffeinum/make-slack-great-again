@@ -1704,8 +1704,7 @@ void SlackBackend::sectionCall(
 void SlackBackend::createSection(std::string name, std::string emoji, ConvRef first) {
     std::string form;
     addParam(form, "name", name);
-    if (!emoji.empty())
-        addParam(form, "emoji", emoji);
+    addParam(form, "emoji", emoji); // Slack requires the field, even empty
     // The id is Slack's: the section shows once it answers.
     sectionCall(
         "users.channelSections.create",

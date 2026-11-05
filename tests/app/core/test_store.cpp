@@ -195,6 +195,8 @@ TEST("store: pages prepend, append and insert with the right change kinds") {
     CHECK((r.log[1].kind == ChangeKind::Prepend && r.log[1].count == 2));
     CHECK((r.log[2].kind == ChangeKind::Insert && r.log[2].ts == 250));
     CHECK((r.log[3].kind == ChangeKind::Append && r.log[3].count == 1));
+    for (const model::Change &ch : r.log)
+        CHECK_FALSE(ch.live); // a page is history, never news to announce
     CHECK(msgs.size() == 7);
     CHECK(f.s.indexOf(f.c, 250) == 4);
     CHECK(f.s.indexOf(f.c, 999) == SIZE_MAX);
@@ -417,6 +419,7 @@ TEST("store: thread replies update their root") {
     CHECK(root->replyUsers.size() == 1);
     REQUIRE(r.log.size() == 2);
     CHECK((r.log[0].kind == ChangeKind::Append && r.log[0].thread == 100 && r.log[0].count == 1));
+    CHECK(r.log[0].live); // one message that arrived: news
     CHECK((r.log[1].kind == ChangeKind::Update && r.log[1].thread == 0 && r.log[1].ts == 100));
     // Replies are not unread top-level messages.
     CHECK(f.s.conversation(f.c).unread == 0);

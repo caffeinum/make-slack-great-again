@@ -54,6 +54,11 @@ class TypingIndicator;
 class UpdateBar;
 class WorkspaceStack;
 
+// The notification chime's spacing: a second one inside the gap stays quiet
+// (its banner still shows). True, and lastMs moved to nowMs, when one is due.
+inline constexpr int64_t kChimeGapMs = 2000;
+bool                     chimeDue(int64_t &lastMs, int64_t nowMs);
+
 class Shell {
 public:
     Shell(
@@ -536,6 +541,7 @@ private:
     // and Windows keep delivered notifications around across launches, so
     // a click after a restart needs this to still resolve.
     std::unordered_map<uint64_t, Notified> _notified;
+    int64_t                                _lastChimeMs = 0; // base::monotonicMs(): chimeDue
     std::unordered_set<std::string>        _notifiedHuddles; // "key\x1Fconv": announced, still live
     plat::TimerId                          _notifySaveTimer = 0; // saveNotifiedSoon's
     uint64_t                               _nextNotifyId    = 1; // nextNotifyId's, persisted
